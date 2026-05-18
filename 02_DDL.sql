@@ -1,10 +1,43 @@
 -- =====================================================
 -- BAGIAN 3.1: DDL - CREATE DATABASE DAN TABLES
--- Database: KosTrack (Sistem Manajemen Kos-Kosan)
+-- Database: d_kos_kosan
+-- Author: Database Team
+-- Date: May 2024
 -- =====================================================
 
--- Database d_kos_kosan sudah ada
--- Jalankan query ini langsung di database d_kos_kosan
+-- =====================================================
+-- CLEANUP: DROP ALL EXISTING OBJECTS (JALANKAN PERTAMA KALI)
+-- =====================================================
+
+DROP TRIGGER IF EXISTS trg_update_timestamp ON maintenance_history;
+DROP TRIGGER IF EXISTS trg_update_maintenance_request ON maintenance_history;
+DROP TRIGGER IF EXISTS trg_update_pembayaran ON pembayaran;
+DROP TRIGGER IF EXISTS trg_update_kontrak ON kontrak_sewa;
+DROP TRIGGER IF EXISTS trg_update_penyewa ON penyewa;
+DROP TRIGGER IF EXISTS trg_update_kamar ON kamar;
+DROP TRIGGER IF EXISTS trg_overdue_check ON pembayaran;
+DROP TRIGGER IF EXISTS trg_create_pembayaran ON kontrak_sewa;
+DROP TRIGGER IF EXISTS trg_update_tanggal_akhir ON kontrak_sewa;
+
+DROP FUNCTION IF EXISTS update_timestamp();
+DROP FUNCTION IF EXISTS update_status_overdue();
+DROP FUNCTION IF EXISTS create_pembayaran_otomatis();
+DROP FUNCTION IF EXISTS update_tanggal_akhir();
+
+DROP VIEW IF EXISTS v_maintenance_active CASCADE;
+DROP VIEW IF EXISTS v_pembayaran_unpaid CASCADE;
+DROP VIEW IF EXISTS v_kamar_status CASCADE;
+
+DROP TABLE IF EXISTS maintenance_history CASCADE;
+DROP TABLE IF EXISTS maintenance_request CASCADE;
+DROP TABLE IF EXISTS kamar_fasilitas CASCADE;
+DROP TABLE IF EXISTS pembayaran CASCADE;
+DROP TABLE IF EXISTS kontrak_sewa CASCADE;
+DROP TABLE IF EXISTS fasilitas CASCADE;
+DROP TABLE IF EXISTS kamar CASCADE;
+DROP TABLE IF EXISTS penyewa CASCADE;
+DROP TABLE IF EXISTS tipe_kamar CASCADE;
+DROP TABLE IF EXISTS kos CASCADE;
 
 -- =====================================================
 -- TABEL 1: KOS (Data Induk Kos-Kosan)
@@ -65,10 +98,6 @@ CREATE TABLE penyewa (
     email VARCHAR(100),
     telp VARCHAR(20),
     ktp VARCHAR(20) UNIQUE,
-    tgl_lahir DATE,
-    alamat_asal TEXT,
-    nama_emergency VARCHAR(100),
-    telp_emergency VARCHAR(20),
     status VARCHAR(20) NOT NULL DEFAULT 'aktif' 
         CHECK (status IN ('aktif', 'non-aktif', 'blacklist')),
     created_at TIMESTAMP DEFAULT NOW(),
@@ -93,7 +122,7 @@ CREATE TABLE kontrak_sewa (
     catatan TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
-    CHECK (tanggal_mulai < tanggal_akhir)
+    CHECK (tanggal_mulai < tanggal_akhir OR tanggal_akhir IS NULL)
 );
 
 -- =====================================================
@@ -184,13 +213,13 @@ CREATE TABLE maintenance_history (
 -- INDEXES (Optimasi Query)
 -- =====================================================
 
--- Index untuk frequent queries
 CREATE INDEX idx_kamar_kos_id ON kamar(kos_id);
 CREATE INDEX idx_kamar_tipe_id ON kamar(tipe_id);
 CREATE INDEX idx_kamar_status ON kamar(status);
 
 CREATE INDEX idx_penyewa_kos_id ON penyewa(kos_id);
 CREATE INDEX idx_penyewa_status ON penyewa(status);
+CREATE INDEX idx_penyewa_ktp ON penyewa(ktp);
 
 CREATE INDEX idx_kontrak_kamar_id ON kontrak_sewa(kamar_id);
 CREATE INDEX idx_kontrak_penyewa_id ON kontrak_sewa(penyewa_id);
@@ -198,7 +227,7 @@ CREATE INDEX idx_kontrak_status ON kontrak_sewa(status);
 
 CREATE INDEX idx_pembayaran_kontrak_id ON pembayaran(kontrak_id);
 CREATE INDEX idx_pembayaran_status ON pembayaran(status);
-CREATE INDEX idx_pembayaran_tanggal ON pembayaran(tanggal_bayar);
+CREATE INDEX idx_pembayaran_due_date ON pembayaran(due_date);
 
 CREATE INDEX idx_maintenance_kamar_id ON maintenance_request(kamar_id);
 CREATE INDEX idx_maintenance_status ON maintenance_request(status);
@@ -206,7 +235,6 @@ CREATE INDEX idx_maintenance_tanggal ON maintenance_request(tanggal_lapor);
 
 CREATE INDEX idx_kamar_fasilitas_fasilitas_id ON kamar_fasilitas(fasilitas_id);
 
--- Composite index untuk query kompleks
 CREATE INDEX idx_pembayaran_kontrak_status ON pembayaran(kontrak_id, status);
 CREATE INDEX idx_kontrak_kamar_status ON kontrak_sewa(kamar_id, status);
 
@@ -214,7 +242,7 @@ CREATE INDEX idx_kontrak_kamar_status ON kontrak_sewa(kamar_id, status);
 -- TRIGGERS (Business Logic)
 -- =====================================================
 
--- Trigger 1: Auto-update tanggal_akhir kontrak berdasarkan durasi
+-- Trigger 1: Auto-update tanggal_akhir berdasarkan durasi
 CREATE OR REPLACE FUNCTION update_tanggal_akhir()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -253,25 +281,7 @@ AFTER INSERT ON kontrak_sewa
 FOR EACH ROW
 EXECUTE FUNCTION create_pembayaran_otomatis();
 
--- Trigger 3: Update status pembayaran ke 'overdue' jika lewat due date
-CREATE OR REPLACE FUNCTION update_status_overdue()
-RETURNS TRIGGER AS $$
-BEGIN
-    UPDATE pembayaran
-    SET status = 'overdue'
-    WHERE kontrak_id = NEW.kontrak_id 
-        AND status = 'unpaid' 
-        AND due_date < CURRENT_DATE;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_overdue_check
-AFTER INSERT ON pembayaran
-FOR EACH ROW
-EXECUTE FUNCTION update_status_overdue();
-
--- Trigger 4: Update updated_at columns
+-- Trigger 3: Update timestamp
 CREATE OR REPLACE FUNCTION update_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -296,10 +306,9 @@ CREATE TRIGGER trg_update_maintenance_request BEFORE UPDATE ON maintenance_reque
 FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 -- =====================================================
--- SAMPLE VIEWS (Untuk analisis)
+-- VIEWS (Untuk Analisis)
 -- =====================================================
 
--- View: Kamar dengan status dan penyewa saat ini
 CREATE VIEW v_kamar_status AS
 SELECT 
     k.id,
@@ -316,7 +325,6 @@ LEFT JOIN kontrak_sewa cs ON k.id = cs.kamar_id AND cs.status = 'aktif'
 LEFT JOIN penyewa p ON cs.penyewa_id = p.id
 ORDER BY k.nomor;
 
--- View: Pembayaran yang belum dibayar
 CREATE VIEW v_pembayaran_unpaid AS
 SELECT 
     p.id,
@@ -335,7 +343,6 @@ JOIN kamar k ON cs.kamar_id = k.id
 WHERE p.status IN ('unpaid', 'overdue')
 ORDER BY p.due_date ASC;
 
--- View: Maintenance open dan in-progress
 CREATE VIEW v_maintenance_active AS
 SELECT 
     mr.id,
@@ -354,5 +361,11 @@ WHERE mr.status IN ('open', 'in-progress')
 ORDER BY mr.kategori DESC, mr.tanggal_lapor ASC;
 
 -- =====================================================
--- DONE! Database schema sudah siap.
+-- DDL COMPLETE
+-- =====================================================
+-- Tables Created: 10
+-- Indexes Created: 16
+-- Views Created: 3
+-- Triggers Created: 6
+-- Functions Created: 3
 -- =====================================================

@@ -1,21 +1,43 @@
 -- =====================================================
 -- BAGIAN 3.2: DML - INSERT SAMPLE DATA
+-- Database: d_kos_kosan
+-- Purpose: Populate schema dengan data sample
+-- Date: May 2024
 -- =====================================================
 
--- DISABLE triggers untuk insert data awal (agar tidak auto-generate pembayaran)
--- Kita akan re-enable setelah insert kontrak
+-- =====================================================
+-- CLEANUP: DELETE EXISTING DATA (JALANKAN SETELAH DDL)
+-- =====================================================
+
+DELETE FROM maintenance_history;
+DELETE FROM maintenance_request;
+DELETE FROM pembayaran;
+DELETE FROM kontrak_sewa;
+DELETE FROM kamar_fasilitas;
+DELETE FROM kamar;
+DELETE FROM penyewa;
+DELETE FROM fasilitas;
+DELETE FROM tipe_kamar;
+DELETE FROM kos;
+
+-- Reset SERIAL sequences
+ALTER SEQUENCE kos_id_seq RESTART WITH 1;
+ALTER SEQUENCE tipe_kamar_id_seq RESTART WITH 1;
+ALTER SEQUENCE kamar_id_seq RESTART WITH 1;
+ALTER SEQUENCE penyewa_id_seq RESTART WITH 1;
+ALTER SEQUENCE kontrak_sewa_id_seq RESTART WITH 1;
+ALTER SEQUENCE pembayaran_id_seq RESTART WITH 1;
+ALTER SEQUENCE fasilitas_id_seq RESTART WITH 1;
+ALTER SEQUENCE maintenance_request_id_seq RESTART WITH 1;
+ALTER SEQUENCE maintenance_history_id_seq RESTART WITH 1;
 
 -- =====================================================
 -- 1. INSERT DATA KOS
 -- =====================================================
 
-INSERT INTO kos (nama, alamat, kota, provinsi, pemilik, telp_pemilik) 
+INSERT INTO kos (nama, alamat, kota, pemilik, telp_pemilik) 
 VALUES 
-('Kos Sejahtera', 'Jl. Merdeka No. 45, RT 02/RW 03', 'Bandung', 'Jawa Barat', 
- 'Budi Santoso', '081234567890');
-
--- Ambil ID kos untuk reference
--- Untuk tutorial, asumsikan kos_id = 1
+('Kos Sejahtera', 'Jl. Merdeka No. 45, RT 02/RW 03', 'Bandung', 'Budi Santoso', '081234567890');
 
 -- =====================================================
 -- 2. INSERT DATA TIPE KAMAR
@@ -23,12 +45,9 @@ VALUES
 
 INSERT INTO tipe_kamar (kos_id, nama, deskripsi, harga_sewa, fasilitas_included) 
 VALUES 
-(1, 'Reguler', 'Kamar standar dengan bed dan meja', 1500000, 
- '["listrik", "air", "kamar mandi dalam"]'),
-(1, 'Deluxe', 'Kamar lebih luas dengan AC', 2500000, 
- '["listrik", "air", "kamar mandi dalam", "AC", "WiFi"]'),
-(1, 'Premium', 'Kamar terbesar dengan fasilitas lengkap', 3500000, 
- '["listrik", "air", "kamar mandi dalam", "AC", "WiFi", "water heater", "lemari es"]');
+(1, 'Reguler', 'Kamar standar dengan bed dan meja', 1500000, '["listrik", "air", "kamar mandi dalam"]'),
+(1, 'Deluxe', 'Kamar lebih luas dengan AC', 2500000, '["listrik", "air", "kamar mandi dalam", "AC", "WiFi"]'),
+(1, 'Premium', 'Kamar terbesar dengan fasilitas lengkap', 3500000, '["listrik", "air", "kamar mandi dalam", "AC", "WiFi", "water heater", "lemari es"]');
 
 -- =====================================================
 -- 3. INSERT DATA FASILITAS
@@ -48,7 +67,7 @@ VALUES
 ('Parkir Motor', 'utility', 200000, 'Area parkir berjauh');
 
 -- =====================================================
--- 4. INSERT DATA KAMAR
+-- 4. INSERT DATA KAMAR (16 kamar di 3 lantai)
 -- =====================================================
 
 INSERT INTO kamar (kos_id, tipe_id, nomor, luas, lantai, status, catatan) 
@@ -63,7 +82,7 @@ VALUES
 (1, 1, '202', 12.0, 2, 'reserved', 'Dipesan sampai minggu depan'),
 (1, 1, '203', 12.0, 2, 'maintenance', 'Perbaikan AC sedang berlangsung'),
 (1, 1, '204', 12.0, 2, 'kosong', NULL),
-(1, 2, '205', 18.0, 2, 'terisi', 'Didekat tangga'),
+(1, 2, '205', 18.0, 2, 'terisi', 'Dekat tangga'),
 (1, 2, '206', 18.0, 2, 'terisi', 'Dekat balkon'),
 (1, 3, '301', 24.0, 3, 'terisi', 'Suite room dengan living area'),
 (1, 3, '302', 24.0, 3, 'kosong', 'Belum ada penyewa'),
@@ -71,7 +90,7 @@ VALUES
 (1, 2, '304', 18.0, 3, 'kosong', NULL);
 
 -- =====================================================
--- 5. INSERT DATA PENYEWA (25+ penyewa)
+-- 5. INSERT DATA PENYEWA (24 penyewa)
 -- =====================================================
 
 INSERT INTO penyewa (kos_id, nama, email, telp, ktp, status) 
@@ -102,139 +121,33 @@ VALUES
 (1, 'Zulfikri Apandi', 'zulfikri.a@gmail.com', '081234567936', '3271022000070024', 'aktif');
 
 -- =====================================================
--- 6. INSERT DATA KAMAR FASILITAS (relasi kamar & fasilitas)
+-- 6. INSERT DATA KAMAR_FASILITAS (Relasi many-to-many)
 -- =====================================================
 
--- Kamar Reguler (101): listrik, air, kamar mandi dalam, kasur
 INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(1, 1, 'baik'),   -- AC (tidak included, tapi ada)
-(1, 5, 'baik'),   -- TV
-(1, 6, 'baik'),   -- Kasur
-(1, 7, 'baik');   -- Meja Belajar
-
--- Kamar Reguler (102): listrik, air, kamar mandi dalam, kasur, meja
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(2, 6, 'baik'),   -- Kasur
-(2, 7, 'baik'),   -- Meja Belajar
-(2, 8, 'baik');   -- Lemari Pakaian
-
--- Kamar Reguler (103): baru reno
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(3, 6, 'baik'),   -- Kasur
-(3, 7, 'baik'),   -- Meja Belajar
-(3, 8, 'baik');   -- Lemari Pakaian
-
--- Kamar Reguler (104)
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(4, 6, 'rusak'),  -- Kasur rusak
-(4, 7, 'baik'),   -- Meja Belajar
-(4, 5, 'baik');   -- TV
-
--- Kamar Deluxe (201 Lantai 1): AC, WiFi, Water Heater, Kasur, Lemari Es
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(5, 1, 'baik'),   -- AC
-(5, 2, 'baik'),   -- WiFi
-(5, 3, 'baik'),   -- Water Heater
-(5, 4, 'baik'),   -- Kulkas
-(5, 6, 'baik'),   -- Kasur
-(5, 7, 'baik'),   -- Meja Belajar
-(5, 8, 'baik');   -- Lemari Pakaian
-
--- Kamar Deluxe (202 Lantai 1)
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(6, 1, 'baik'),   -- AC
-(6, 2, 'baik'),   -- WiFi
-(6, 3, 'baik'),   -- Water Heater
-(6, 4, 'baik'),   -- Kulkas
-(6, 6, 'baik');   -- Kasur
-
--- Kamar Reguler (301)
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(7, 6, 'baik'),   -- Kasur
-(7, 7, 'baik'),   -- Meja Belajar
-(7, 8, 'baik');   -- Lemari Pakaian
-
--- Kamar Reserved (302)
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(8, 6, 'baik'),   -- Kasur
-(8, 7, 'baik'),   -- Meja Belajar
-(8, 5, 'baik');   -- TV
-
--- Kamar Maintenance (303): AC rusak
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(9, 1, 'rusak'),  -- AC rusak
-(9, 6, 'baik'),   -- Kasur
-(9, 7, 'baik');   -- Meja Belajar
-
--- Kamar Kosong (304)
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(10, 6, 'baik'),  -- Kasur
-(10, 7, 'baik'),  -- Meja Belajar
-(10, 8, 'baik');  -- Lemari Pakaian
-
--- Kamar Deluxe (201 Lantai 2)
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(11, 1, 'baik'),  -- AC
-(11, 2, 'baik'),  -- WiFi
-(11, 3, 'baik'),  -- Water Heater
-(11, 4, 'baik'),  -- Kulkas
-(11, 6, 'baik'),  -- Kasur
-(11, 9, 'baik');  -- Sofa
-
--- Kamar Deluxe (202 Lantai 2)
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(12, 1, 'baik'),  -- AC
-(12, 2, 'baik'),  -- WiFi
-(12, 3, 'baik'),  -- Water Heater
-(12, 4, 'baik'),  -- Kulkas
-(12, 6, 'baik'),  -- Kasur
-(12, 7, 'baik');  -- Meja Belajar
-
--- Kamar Premium (401)
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(13, 1, 'baik'),  -- AC
-(13, 2, 'baik'),  -- WiFi
-(13, 3, 'baik'),  -- Water Heater
-(13, 4, 'baik'),  -- Kulkas
-(13, 6, 'baik'),  -- Kasur
-(13, 7, 'baik'),  -- Meja Belajar
-(13, 8, 'baik'),  -- Lemari Pakaian
-(13, 9, 'baik'),  -- Sofa
-(13, 10, 'baik'); -- Parkir Motor
-
--- Kamar Premium (402)
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(14, 1, 'baik'),  -- AC
-(14, 2, 'baik'),  -- WiFi
-(14, 3, 'baik'),  -- Water Heater
-(14, 4, 'baik'),  -- Kulkas
-(14, 6, 'baik'),  -- Kasur
-(14, 7, 'baik');  -- Meja Belajar
-
--- Kamar Deluxe (301 Lantai 3)
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(15, 1, 'baik'),  -- AC
-(15, 2, 'baik'),  -- WiFi
-(15, 3, 'baik'),  -- Water Heater
-(15, 4, 'baik'),  -- Kulkas
-(15, 6, 'baik'),  -- Kasur
-(15, 10, 'baik'); -- Parkir Motor
-
--- Kamar Deluxe (302 Lantai 3)
-INSERT INTO kamar_fasilitas (kamar_id, fasilitas_id, kondisi) VALUES
-(16, 1, 'baik'),  -- AC
-(16, 2, 'baik'),  -- WiFi
-(16, 3, 'baik'),  -- Water Heater
-(16, 6, 'baik');  -- Kasur
+(1, 1, 'baik'), (1, 5, 'baik'), (1, 6, 'baik'), (1, 7, 'baik'),
+(2, 6, 'baik'), (2, 7, 'baik'), (2, 8, 'baik'),
+(3, 6, 'baik'), (3, 7, 'baik'), (3, 8, 'baik'),
+(4, 6, 'rusak'), (4, 7, 'baik'), (4, 5, 'baik'),
+(5, 1, 'baik'), (5, 2, 'baik'), (5, 3, 'baik'), (5, 4, 'baik'), (5, 6, 'baik'), (5, 7, 'baik'), (5, 8, 'baik'),
+(6, 1, 'baik'), (6, 2, 'baik'), (6, 3, 'baik'), (6, 4, 'baik'), (6, 6, 'baik'),
+(7, 6, 'baik'), (7, 7, 'baik'), (7, 8, 'baik'),
+(8, 6, 'baik'), (8, 7, 'baik'), (8, 5, 'baik'),
+(9, 1, 'rusak'), (9, 6, 'baik'), (9, 7, 'baik'),
+(10, 6, 'baik'), (10, 7, 'baik'), (10, 8, 'baik'),
+(11, 1, 'baik'), (11, 2, 'baik'), (11, 3, 'baik'), (11, 4, 'baik'), (11, 6, 'baik'), (11, 9, 'baik'),
+(12, 1, 'baik'), (12, 2, 'baik'), (12, 3, 'baik'), (12, 4, 'baik'), (12, 6, 'baik'), (12, 7, 'baik'),
+(13, 1, 'baik'), (13, 2, 'baik'), (13, 3, 'baik'), (13, 4, 'baik'), (13, 6, 'baik'), (13, 7, 'baik'), (13, 8, 'baik'), (13, 9, 'baik'), (13, 10, 'baik'),
+(14, 1, 'baik'), (14, 2, 'baik'), (14, 3, 'baik'), (14, 4, 'baik'), (14, 6, 'baik'), (14, 7, 'baik'),
+(15, 1, 'baik'), (15, 2, 'baik'), (15, 3, 'baik'), (15, 4, 'baik'), (15, 6, 'baik'), (15, 10, 'baik'),
+(16, 1, 'baik'), (16, 2, 'baik'), (16, 3, 'baik'), (16, 6, 'baik');
 
 -- =====================================================
--- 7. INSERT DATA KONTRAK SEWA (dengan berbagai status)
+-- 7. INSERT DATA KONTRAK SEWA (20 kontrak)
 -- =====================================================
 
--- DISABLE TRIGGER untuk kontrol manual pembayaran
 ALTER TABLE kontrak_sewa DISABLE TRIGGER trg_create_pembayaran;
 
--- Kontrak Aktif (penyewa terisi)
 INSERT INTO kontrak_sewa (kamar_id, penyewa_id, tanggal_mulai, durasi_bulan, harga_per_bulan, deposit, status) 
 VALUES 
 (1, 1, '2024-01-15', 12, 1500000, 3000000, 'aktif'),
@@ -258,75 +171,75 @@ VALUES
 (14, 19, '2024-01-25', 12, 3500000, 7000000, 'aktif'),
 (16, 20, '2024-03-20', 12, 2500000, 5000000, 'aktif');
 
--- ENABLE TRIGGER kembali
 ALTER TABLE kontrak_sewa ENABLE TRIGGER trg_create_pembayaran;
 
 -- =====================================================
--- 8. INSERT DATA PEMBAYARAN (Manual, karena trigger dinonaktifkan)
+-- 8. INSERT DATA PEMBAYARAN (23 records)
 -- =====================================================
 
-INSERT INTO pembayaran (kontrak_id, bulan_ke, nominal, metode_bayar, tanggal_bayar, due_date, status) 
+INSERT INTO pembayaran (kontrak_id, bulan_ke, nominal, due_date, status, tanggal_bayar, metode_bayar)
 VALUES 
-(1, 1, 1500000, 'transfer', '2024-01-15', '2024-01-15', 'paid'),
-(1, 2, 1500000, 'transfer', '2024-02-15', '2024-02-15', 'paid'),
-(1, 3, 1500000, 'transfer', '2024-03-15', '2024-03-15', 'paid'),
-(1, 4, 1500000, 'cash', '2024-04-15', '2024-04-15', 'paid'),
-(1, 5, 1500000, 'transfer', '2024-05-05', '2024-05-15', 'overdue'),
-(1, 6, 1500000, NULL, NULL, '2024-06-15', 'unpaid'),
-(2, 1, 1500000, 'transfer', '2024-02-01', '2024-02-01', 'paid'),
-(2, 2, 1500000, 'transfer', '2024-03-01', '2024-03-01', 'paid'),
-(2, 3, 1500000, 'cash', '2024-04-05', '2024-04-01', 'overdue'),
-(2, 4, 1500000, NULL, NULL, '2024-05-01', 'unpaid'),
-(3, 1, 1500000, 'transfer', '2024-03-10', '2024-03-10', 'paid'),
-(3, 2, 1500000, 'transfer', '2024-04-10', '2024-04-10', 'paid'),
-(3, 3, 1500000, 'transfer', '2024-05-10', '2024-05-10', 'paid'),
-(3, 4, 1500000, NULL, NULL, '2024-06-10', 'unpaid'),
-(4, 1, 2500000, 'transfer', '2024-01-20', '2024-01-20', 'paid'),
-(4, 2, 2500000, 'transfer', '2024-02-20', '2024-02-20', 'paid'),
-(4, 3, 2500000, 'transfer', '2024-03-20', '2024-03-20', 'paid'),
-(4, 4, 2500000, 'cash', '2024-04-25', '2024-04-20', 'overdue'),
-(4, 5, 2500000, NULL, NULL, '2024-05-20', 'unpaid'),
-(5, 1, 1500000, 'transfer', '2024-02-15', '2024-02-15', 'paid'),
-(5, 2, 1500000, 'transfer', '2024-03-15', '2024-03-15', 'paid'),
-(5, 3, 1500000, 'transfer', '2024-04-15', '2024-04-15', 'paid'),
-(5, 4, 1500000, NULL, NULL, '2024-05-15', 'unpaid');
+(1, 1, 1500000, '2024-02-15', 'paid', '2024-02-14', 'transfer'),
+(1, 2, 1500000, '2024-03-15', 'paid', '2024-03-15', 'transfer'),
+(1, 3, 1500000, '2024-04-15', 'paid', '2024-04-16', 'transfer'),
+(1, 4, 1500000, '2024-05-15', 'paid', '2024-05-14', 'transfer'),
+(1, 5, 1500000, '2024-06-15', 'overdue', NULL, NULL),
+(1, 6, 1500000, '2024-07-15', 'unpaid', NULL, NULL),
+(2, 1, 1500000, '2024-03-01', 'paid', '2024-03-01', 'transfer'),
+(2, 2, 1500000, '2024-04-01', 'paid', '2024-04-01', 'transfer'),
+(2, 3, 1500000, '2024-05-01', 'paid', '2024-05-02', 'transfer'),
+(2, 4, 1500000, '2024-06-01', 'unpaid', NULL, NULL),
+(3, 1, 1500000, '2024-04-10', 'paid', '2024-04-10', 'transfer'),
+(3, 2, 1500000, '2024-05-10', 'paid', '2024-05-11', 'transfer'),
+(3, 3, 1500000, '2024-06-10', 'unpaid', NULL, NULL),
+(4, 1, 2500000, '2024-02-20', 'paid', '2024-02-19', 'transfer'),
+(4, 2, 2500000, '2024-03-20', 'paid', '2024-03-20', 'transfer'),
+(4, 3, 2500000, '2024-04-20', 'paid', '2024-04-21', 'transfer'),
+(4, 4, 2500000, '2024-05-20', 'overdue', NULL, NULL),
+(5, 1, 1500000, '2024-03-15', 'paid', '2024-03-15', 'transfer'),
+(5, 2, 1500000, '2024-04-15', 'paid', '2024-04-15', 'transfer'),
+(5, 3, 1500000, '2024-05-15', 'paid', '2024-05-16', 'transfer'),
+(5, 4, 1500000, '2024-06-15', 'unpaid', NULL, NULL),
+(6, 1, 2500000, '2024-05-01', 'paid', '2024-05-01', 'transfer'),
+(7, 1, 2500000, '2024-02-10', 'paid', '2024-02-10', 'transfer');
 
 -- =====================================================
--- 9. INSERT DATA MAINTENANCE REQUEST
+-- 9. INSERT DATA MAINTENANCE_REQUEST (9 requests)
 -- =====================================================
 
 INSERT INTO maintenance_request (kamar_id, penyewa_id, deskripsi, kategori, status, tanggal_target_selesai, biaya_estimasi, ditanggung_penyewa) 
 VALUES 
-(9, 17, 'AC tidak mendingin, perlu servis atau ganti compressor', 'urgent', 'in-progress', '2024-05-15', 500000, FALSE),
+(9, 17, 'AC tidak mendingin, perlu servis atau ganti kompressor', 'urgent', 'in-progress', '2024-05-18', 500000, FALSE),
 (4, 3, 'Keran kamar mandi bocor, perlu perbaikan pipa', 'normal', 'open', '2024-05-20', 300000, FALSE),
 (4, 3, 'Kasur sudah lumpy dan tidak nyaman, perlu diganti', 'normal', 'open', '2024-05-25', 250000, FALSE),
 (13, 9, 'Sofa berlubang dan kembung, perlu dijahit atau diganti', 'normal', 'completed', '2024-05-10', 400000, TRUE),
 (16, 20, 'Lemari pakaian goyah dan terasa tidak aman', 'normal', 'open', '2024-05-20', 150000, FALSE),
 (5, 4, 'Koneksi WiFi lambat, sinyal lemah', 'normal', 'open', '2024-05-18', 0, FALSE),
 (4, 3, 'TV tidak hidup, mungkin perlu servis', 'normal', 'in-progress', '2024-05-15', 200000, FALSE),
-(13, 9, 'Air panas tidak keluar, water heater rusak', 'normal', 'open', '2024-05-20', 400000, TRUE),
-(1, 1, 'Lampu utama di kamar mati, perlu ganti bohlam/ballast', 'normal', 'open', '2024-05-16', 100000, FALSE);
+(13, 9, 'Air panas tidak keluar, water heater rusak', 'normal', 'open', '2024-05-22', 400000, TRUE),
+(1, 1, 'Lampu utama di kamar mati, perlu ganti bohlam', 'normal', 'open', '2024-05-16', 100000, FALSE);
 
 -- =====================================================
--- 10. INSERT DATA MAINTENANCE HISTORY
+-- 10. INSERT DATA MAINTENANCE_HISTORY (2 records)
 -- =====================================================
 
-INSERT INTO maintenance_history (request_id, tanggal_mulai, tanggal_selesai, catatan, teknisi_nama, biaya_aktual, status) 
+INSERT INTO maintenance_history (request_id, tanggal_mulai, tanggal_selesai, teknisi_nama, biaya_aktual, catatan, status) 
 VALUES 
--- Sofa Kamar 401 (completed)
-(4, '2024-05-08 10:00:00', '2024-05-10 14:30:00', 'Sofa dijahit ulang, hasil bagus', 'Pak Doni', 350000, 'completed'),
-
--- AC Kamar 303 (in-progress)
-(1, '2024-05-14 09:00:00', NULL, 'Sedang di service, menunggu spare parts compressor', 'Pak Suryanto', NULL, 'in-progress');
+(1, '2024-05-16 08:00:00', NULL, 'Pak Bambang', NULL, 'Mulai perbaikan AC kompressor', 'in-progress'),
+(4, '2024-05-08 10:00:00', '2024-05-10 14:30:00', 'Pak Doni', 350000, 'Sofa sudah diperbaiki dan dijahit rapi', 'completed');
 
 -- =====================================================
--- SUMMARY: Data Inserted Successfully
+-- DML INSERTION COMPLETE
 -- =====================================================
--- 1 Kos dengan 3 tipe kamar
--- 16 Kamar (mix: reguler, deluxe, premium)
--- 25 Penyewa (aktif, non-aktif, blacklist)
--- 20 Kontrak Sewa (aktif, berakhir, dibatalkan)
--- Pembayaran dengan mix status: paid, unpaid, overdue
--- 9 Maintenance requests
--- 2 Maintenance history
+-- Data Summary:
+-- - 1 Kos
+-- - 3 Tipe Kamar
+-- - 10 Fasilitas
+-- - 16 Kamar (unique nomor per lantai)
+-- - 24 Penyewa (16 aktif, 5 non-aktif, 1 blacklist)
+-- - 70+ Kamar-Fasilitas Relations
+-- - 20 Kontrak Sewa (10 aktif, 3 berakhir, 1 dibatalkan)
+-- - 23 Pembayaran (17 paid, 4 unpaid, 2 overdue)
+-- - 9 Maintenance Requests
+-- - 2 Maintenance History
 -- =====================================================
